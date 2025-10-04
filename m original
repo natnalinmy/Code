@@ -1,0 +1,416 @@
+ClearCollect(
+    colLine,
+    MASTER_LINE
+);
+Set(
+    _dateSelected,
+    Today()
+);
+Set(
+    _firstDayOfDaySelected,
+    Today()
+);
+Set(
+    _firstDayOfMonth,
+    DateAdd(
+        Today(),
+        1 - Day(Today()),
+        TimeUnit.Days
+    )
+);
+Set(
+    _firstDayInView,
+    DateAdd(
+        _firstDayOfMonth,
+        -(Weekday(_firstDayOfMonth) - 2 + 1),
+        TimeUnit.Days
+    )
+);
+Set(
+    _lastDayOfMonth,
+    DateAdd(
+        DateAdd(
+            _firstDayOfMonth,
+            1,
+            TimeUnit.Months
+        ),
+        -1,
+        TimeUnit.Days
+    )
+);
+Set(
+    _lastDayOfMonth,
+    DateAdd(
+        _lastDayOfMonth,
+        86399,
+        TimeUnit.Seconds
+    )
+);
+// Adds 23 hours, 59 minutes, and 59 seconds
+Set(
+    _minDate,
+    DateAdd(
+        _firstDayOfMonth,
+        -(Weekday(_firstDayOfMonth) - 2 + 1),
+        TimeUnit.Days
+    )
+);
+Set(
+    _maxDate,
+    DateAdd(
+        DateAdd(
+            _firstDayOfMonth,
+            -(Weekday(_firstDayOfMonth) - 2 + 1),
+            TimeUnit.Days
+        ),
+        40,
+        TimeUnit.Days
+    )
+);
+// Set the current date to the first day of the week 
+Set(
+    _firstDayOfWeek,
+    DateAdd(
+        Today(),
+        1 - Weekday(
+            Today(),
+            StartOfWeek.Sunday
+        ),
+        TimeUnit.Days
+    )
+);
+// Set the last day of the week 
+Set(
+    _lastDayOfWeek,
+    DateAdd(
+        _firstDayOfWeek,
+        6,
+        TimeUnit.Days
+    )
+);
+// Set the minimum date (start of the week) and maximum date (end of the week) for display purposes 
+Set(
+    _minDateWeek,
+    _firstDayOfWeek
+);
+Set(
+    _maxDateWeek,
+    _lastDayOfWeek
+);
+Set(
+    varUser,
+    First(
+        Filter(
+            MASTER_EMPLOYEE,
+            emp_email = User().Email
+        )
+    )
+);
+//Set df calendar mode
+Set(
+    Month,
+    true
+) And Set (
+    Weekday,
+    false
+) And Set(
+    Day,
+    false
+);
+//Set df record edit
+Set(
+    lastSubmittedID,
+    0
+);
+Notify(
+    "กำลังรอโหลดข้อมูล....",
+    NotificationType.Information
+);
+/*
+ClearCollect(
+    col5m1e,
+    Filter(
+        '5M1E_Improvement',
+        time_start >= _firstDayOfMonth && time_start <= _lastDayOfMonth && pd = "D1.1"
+    )
+);*/
+// ----------- Permission TA Collection ----------------
+Clear(clPMS_TA_0);
+ForAll(
+    MASTER_LINE,
+    ForAll(
+        ThisRecord.rep_ta,
+        Collect(
+            clPMS_TA_0,
+            {
+                mail: Email,
+                PD: pd,
+                Line: line_key
+            }
+        )
+    )
+);
+// ----------- Permission TL Collection ----------------
+Clear(clPMS_TL_0);
+ForAll(
+    MASTER_LINE,
+    ForAll(
+        ThisRecord.rep_tl,
+        Collect(
+            clPMS_TL_0,
+            {
+                mail: Email,
+                PD: pd,
+                Line: line_key
+            }
+        )
+    )
+);
+// ----------- Permission SV Collection ----------------
+Clear(clPMS_SV_0);
+ForAll(
+    MASTER_LINE,
+    Collect(
+        clPMS_SV_0,
+        {
+            mail: ThisRecord.rep_sv.Email,
+            PD: pd,
+            Line: line_key
+        }
+    )
+);
+// ----------- Permission AM Collection ----------------
+Clear(clPMS_AM_0);
+ForAll(
+    MASTER_LINE,
+    Collect(
+        clPMS_AM_0,
+        {
+            mail: ThisRecord.rep_am.Email,
+            PD: pd,
+            Line: line_key
+        }
+    )
+);
+// ----------- Permission MGR Collection ----------------
+Clear(clPMS_MGR_0);
+ForAll(
+    MASTER_LINE,
+    Collect(
+        clPMS_MGR_0,
+        {
+            mail: ThisRecord.rep_mgr.Email,
+            PD: pd,
+            Line: line_key
+        }
+    )
+);
+// ----------- Permission GM Collection ----------------
+Clear(clPMS_GM_0);
+ForAll(
+    MASTER_LINE,
+    Collect(
+        clPMS_GM_0,
+        {
+            mail: ThisRecord.rep_gm.Email,
+            PD: pd,
+            Line: line_key
+        }
+    )
+);
+//------------------------------------------------
+ClearCollect(
+    colPermission_0,
+    clPMS_GM_0,
+    clPMS_MGR_0,
+    clPMS_AM_0,
+    clPMS_SV_0,
+    clPMS_TL_0,
+    clPMS_TA_0
+);
+//----------------Collection All---------------
+Collect(
+    clPMS_All,
+    Distinct(
+        Filter(
+            colPermission_0,
+            mail = User().Email
+        ),
+        PD
+    )
+);
+If(
+    IsBlank(varFilterPD),
+    Set(
+        varFilterPD,
+        First(
+            Distinct(
+                clPMS_All,
+                Value
+            )
+        ).Value
+    ),
+    varFilterPD
+);
+If(
+    IsBlank(varSectionCode),
+    Set(
+        varSectionCode,
+        LookUp(
+            colLine,
+            line_key = First(
+                Filter(
+                    colPermission_0,
+                    mail = User().Email
+                )
+            ).Line
+        ).section_code
+    )
+);
+ClearCollect(
+    col5m1e,
+    Filter(
+        '5M1E_Improvement',
+        time_start >= _firstDayOfMonth && time_start <= _lastDayOfMonth && pd = varFilterPD && section_code = varSectionCode
+    )
+);
+Collect (
+    col5m1e,
+    Sort(
+        col5m1e,
+        time_start
+    ),
+    SortOrder.Descending
+);
+ClearCollect(
+    colEmp,
+    Filter(
+        MASTER_EMPLOYEE,
+        position_tier = "T8" || position_tier = "T7" || position_tier = "T6" || position_tier = "T5" || position_tier = "T4" || position_tier = "T3" || position_tier = "T2" || position_tier = "T1"
+    )
+);
+
+ClearCollect(
+    colEmpQA,
+    Filter(
+        MASTER_EMPLOYEE,
+        Short_Dep = "QA",
+        (position_tier = "T7" || position_tier = "T6" || position_tier = "T5" || position_tier = "T4" || position_tier = "T3" || position_tier = "T2" || position_tier = "T1" || position_tier = "T1/C" || position_tier = "G1" || position_tier = "G1/A1" || position_tier = "G2" || position_tier = "G2/A2")
+    )
+);
+ClearCollect(
+    colEmpPE,
+    Filter(
+        MASTER_EMPLOYEE,
+        Short_Dep = "PE",
+        (position_tier = "T7" || position_tier = "T6" || position_tier = "T5" || position_tier = "T4" || position_tier = "T3" || position_tier = "T2" || position_tier = "T1" || position_tier = "T1/C" || position_tier = "G1" || position_tier = "G1/A1" || position_tier = "G2" || position_tier = "G2/A2")
+    )
+);
+ClearCollect(
+    colEmpPD,
+    Filter(
+        MASTER_EMPLOYEE,
+        Short_Dep = "PD",
+        (position_tier = "T7" || position_tier = "T6" || position_tier = "T5" || position_tier = "T4" || position_tier = "T3" || position_tier = "T2" || position_tier = "T1" || position_tier = "T1/C" || position_tier = "G1" || position_tier = "G1/A1" || position_tier = "G2" || position_tier = "G2/A2")
+    )
+);
+ClearCollect(
+    colEmpPC,
+    Filter(
+        MASTER_EMPLOYEE,
+        Short_Dep = "PC",
+        (position_tier = "T7" || position_tier = "T6" || position_tier = "T5" || position_tier = "T4" || position_tier = "T3" || position_tier = "T2" || position_tier = "T1" || position_tier = "T1/C" || position_tier = "G1" || position_tier = "G1/A1" || position_tier = "G2" || position_tier = "G2/A2")
+    )
+);
+ClearCollect(
+    colEmpMT,
+    Filter(
+        MASTER_EMPLOYEE,
+        Short_Dep = "MT",
+        (position_tier = "T7" || position_tier = "T6" || position_tier = "T5" || position_tier = "T4" || position_tier = "T3" || position_tier = "T2" || position_tier = "T1" || position_tier = "T1/C" || position_tier = "G1" || position_tier = "G1/A1" || position_tier = "G2" || position_tier = "G2/A2")
+    )
+);
+ClearCollect(
+    colEmpQC,
+    Filter(
+        MASTER_EMPLOYEE,
+        Short_Dep = "QC",
+        (position_tier = "T7" || position_tier = "T6" || position_tier = "T5" || position_tier = "T4" || position_tier = "T3" || position_tier = "T2" || position_tier = "T1" || position_tier = "T1/C" || position_tier = "G1" || position_tier = "G1/A1" || position_tier = "G2" || position_tier = "G2/A2")
+    )
+);
+/*
+ClearCollect(
+    DropdownlinenameItems,
+    {
+        line_name: "All",
+        PD_New: "All"
+    },
+    {
+        line_name: "All",
+        PD_New: "D1.1"
+    },
+    {
+        line_name: "All",
+        PD_New: "D1.2"
+    },
+    {
+        line_name: "All",
+        PD_New: "D1.3"
+    },
+    {
+        line_name: "All",
+        PD_New: "D1.4"
+    },
+    {
+        line_name: "All",
+        PD_New: "D2.1"
+    },
+    {
+        line_name: "All",
+        PD_New: "D2.2"
+    },
+    {
+        line_name: "All",
+        PD_New: "G1.1"
+    },
+    {
+        line_name: "All",
+        PD_New: "G1.2"
+    },
+    {
+        line_name: "All",
+        PD_New: "G1.3"
+    },
+    {
+        line_name: "All",
+        PD_New: "G1.4"
+    }
+);
+Collect(
+    DropdownlinenameItems,
+    MASTER_LINE
+);
+*/
+ClearCollect(
+    DropdownlinenameItems,
+    {
+        line_name: "All",
+        pd: varFilterPD,
+        section_code: varSectionCode
+    }
+);
+Collect(
+    DropdownlinenameItems,
+    Filter(
+        MASTER_LINE,
+        pd = varFilterPD && section_code = varSectionCode
+    )
+);
+ClearCollect(
+    colContent,
+    '5M1E_Improvement_Content'
+);
+Notify(
+    "โหลดข้อมูลเสร็จสิ้น",
+    NotificationType.Success
+);
